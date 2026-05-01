@@ -7,12 +7,6 @@ import { topicLabel } from "../utils/topics";
 
 const HASHTAG_REGEX = /(#[\p{L}\p{N}_]+)/gu;
 
-const SUGGESTED = [
-  { name: "Elena Vásquez",  avatar: "EV", colors: "avatar-navy",       desc: "Activista ambiental" },
-  { name: "Pedro Martínez", avatar: "PM", colors: "avatar-teal",       desc: "Periodista ciudadano" },
-  { name: "Laura Gómez",    avatar: "LG", colors: "avatar-terracotta", desc: "Veeduría ciudadana" },
-];
-
 const CATEGORY_COLORS = {
   presupuesto: { dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
   transporte:  { dot: "bg-blue-500",    text: "text-blue-600 dark:text-blue-400" },
@@ -516,7 +510,7 @@ export default function Dashboard() {
     getPosts, getTrendingHashtags, getPostsByHashtag, createPost, deletePost, toggleLike, toggleRepost, toggleSavePost,
     uploadImage, uploadVideo,
     getComments, createComment, deleteComment,
-    getMeetings, toggleRSVP, getUnreadNotificationsCount, getCampaigns, updateMyPreferences,
+    getMeetings, toggleRSVP, getUnreadNotificationsCount, getCampaigns, updateMyPreferences, getPublicProfile,
   } = useAuth();
 
   const [posts,        setPosts]        = useState([]);
@@ -538,6 +532,11 @@ export default function Dashboard() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [campaigns, setCampaigns] = useState([]);
+  const [profileStats, setProfileStats] = useState({
+    proposals: 0,
+    followers: 0,
+    following: 0,
+  });
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesError, setPreferencesError] = useState("");
 
@@ -546,6 +545,11 @@ export default function Dashboard() {
   const videoInputRef   = useRef(null);
 
   const initials = user?.avatar_initials ?? user?.full_name?.slice(0, 2).toUpperCase() ?? "TU";
+  const userStats = {
+    proposals: profileStats.proposals,
+    followers: profileStats.followers,
+    following: profileStats.following,
+  };
 
   function focusPostArea() {
     if (postTextareaRef.current) {
@@ -652,6 +656,25 @@ export default function Dashboard() {
     }
   }, [getTrendingHashtags]);
 
+  const fetchProfileStats = useCallback(async () => {
+    if (!user?.username) return;
+    try {
+      const data = await getPublicProfile(user.username);
+      const profile = data?.profile ?? {};
+      setProfileStats({
+        proposals: Number(profile.proposals_count ?? profile.proposals ?? 0),
+        followers: Number(profile.followers_count ?? profile.followers ?? 0),
+        following: Number(profile.following_count ?? profile.following ?? 0),
+      });
+    } catch (_) {
+      setProfileStats({
+        proposals: Number(user?.proposals_count ?? user?.proposals ?? 0),
+        followers: Number(user?.followers_count ?? user?.followers ?? 0),
+        following: Number(user?.following_count ?? user?.following ?? 0),
+      });
+    }
+  }, [getPublicProfile, user]);
+
   async function handleComment(postId, content) {
     const comment = await createComment(postId, content);
     setPosts(prev => prev.map(p =>
@@ -694,7 +717,8 @@ export default function Dashboard() {
     fetchTrending();
     fetchMeetings();
     fetchCampaigns();
-  }, [fetchPosts, fetchTrending, fetchMeetings, fetchCampaigns]);
+    fetchProfileStats();
+  }, [fetchPosts, fetchTrending, fetchMeetings, fetchCampaigns, fetchProfileStats]);
 
   useEffect(() => {
     let active = true;
@@ -941,7 +965,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="flex justify-around mt-4 pt-4 border-t border-brand-teal/20">
-                  {[["Propuestas", user?.proposals ?? 0], ["Seguidores", user?.followers ?? 0], ["Siguiendo", user?.following ?? 0]].map(([l, v]) => (
+                  {[["Propuestas", userStats.proposals], ["Seguidores", userStats.followers], ["Siguiendo", userStats.following]].map(([l, v]) => (
                     <div key={l} className="text-center">
                       <p className="font-bold text-lg text-brand-terracotta">{fmtNum(v)}</p>
                       <p className="text-xs text-gray-500">{l}</p>
@@ -1243,24 +1267,6 @@ export default function Dashboard() {
                         <i className="fas fa-chevron-right text-gray-400 text-xs"></i>
                       </div>
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="card-soft rounded-2xl p-5 shadow-soft slide-in border border-brand-teal/10">
-                <h3 className="font-serif font-bold text-lg mb-4 flex items-center gap-2 text-brand-navy dark:text-brand-cream">
-                  <i className="fas fa-users text-brand-teal"></i> Ciudadanos activos
-                </h3>
-                <div className="space-y-3">
-                  {SUGGESTED.map(u => (
-                    <div key={u.name} className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full ${u.colors} flex items-center justify-center text-white font-bold text-sm shrink-0`}>{u.avatar}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-brand-navy dark:text-brand-cream truncate">{u.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{u.desc}</p>
-                      </div>
-                      <button className="px-3 py-1.5 text-xs font-semibold text-brand-teal border border-brand-teal rounded-full hover:bg-brand-teal hover:text-white transition-colors">Seguir</button>
-                    </div>
                   ))}
                 </div>
               </div>

@@ -152,7 +152,8 @@ export default function Landing() {
                   ? "border-brand-teal bg-brand-teal text-white"
                   : "border-brand-teal/20 bg-white/70 text-brand-navy hover:bg-brand-teal/10 dark:bg-brand-navy/40 dark:text-brand-cream"
               }`}
-              aria-label="Abrir menu"
+              aria-label={menuOpen ? "Cerrar menu" : "Abrir menu"}
+              aria-expanded={menuOpen}
             >
               <div className="flex w-4 flex-col gap-1.5">
                 <span className={`block h-0.5 rounded-full bg-current transition-all ${menuOpen ? "translate-y-2 rotate-45" : ""}`}></span>
@@ -164,29 +165,37 @@ export default function Landing() {
         </div>
 
         {menuOpen && (
-          <div className="border-t border-brand-teal/10 bg-brand-cream/95 px-4 pb-4 pt-3 shadow-soft dark:bg-brand-navy/95 lg:hidden">
-            <div className="space-y-2">
-              {NAV_ITEMS.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  onClick={closeMenu}
-                  className="flex items-center justify-between rounded-2xl border border-brand-teal/10 bg-white/70 px-4 py-3 text-sm font-semibold text-brand-navy transition-colors hover:bg-brand-teal/10 dark:bg-brand-navy/40 dark:text-brand-cream"
-                >
-                  <span>{item.label}</span>
-                  <i className="fas fa-arrow-right text-xs text-brand-teal"></i>
-                </a>
-              ))}
+          <>
+            <button
+              type="button"
+              aria-label="Cerrar menu"
+              onClick={closeMenu}
+              className="fixed inset-0 top-[69px] z-[80] bg-brand-navy/45 backdrop-blur-sm lg:hidden"
+            />
+            <div className="fixed inset-x-3 top-[76px] z-[90] rounded-2xl border border-brand-teal/10 bg-brand-cream/98 px-4 pb-4 pt-3 shadow-soft-xl dark:bg-brand-navy/98 lg:hidden">
+              <div className="space-y-2">
+                {NAV_ITEMS.map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    onClick={closeMenu}
+                    className="flex items-center justify-between rounded-xl border border-brand-teal/10 bg-white/80 px-4 py-3 text-sm font-semibold text-brand-navy transition-colors hover:bg-brand-teal/10 dark:bg-brand-navy/50 dark:text-brand-cream"
+                  >
+                    <span>{item.label}</span>
+                    <i className="fas fa-arrow-right text-xs text-brand-teal"></i>
+                  </a>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Link to="/login" onClick={closeMenu} className="rounded-xl border border-brand-teal/20 px-4 py-3 text-center text-sm font-semibold text-brand-navy dark:text-brand-cream">
+                  Iniciar sesion
+                </Link>
+                <Link to="/registro" onClick={closeMenu} className="rounded-xl px-4 py-3 text-center text-sm font-semibold text-white btn-primary">
+                  Crear cuenta
+                </Link>
+              </div>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Link to="/login" onClick={closeMenu} className="rounded-2xl border border-brand-teal/20 px-4 py-3 text-center text-sm font-semibold text-brand-navy dark:text-brand-cream">
-                Iniciar sesion
-              </Link>
-              <Link to="/registro" onClick={closeMenu} className="rounded-2xl px-4 py-3 text-center text-sm font-semibold text-white btn-primary">
-                Crear cuenta
-              </Link>
-            </div>
-          </div>
+          </>
         )}
       </header>
 
@@ -202,7 +211,7 @@ export default function Landing() {
 
               <div className="space-y-4">
                 <h1 className="max-w-4xl font-serif text-4xl font-bold leading-tight text-brand-navy dark:text-brand-cream sm:text-5xl lg:text-6xl">
-                  La voz de tu comunidad en una plataforma que si da seguimiento.
+                  La voz de tu comunidad en una plataforma que sí da seguimiento.
                 </h1>
                 <p className="max-w-2xl text-base leading-8 text-gray-600 dark:text-gray-300 sm:text-lg">
                   Portal Ciudadano conecta a vecinos, representantes y administradores para publicar propuestas, denunciar
