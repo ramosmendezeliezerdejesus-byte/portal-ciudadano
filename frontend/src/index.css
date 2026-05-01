@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+Pro:wght@300;400;600;700&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Scrollbar ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #63BDB5 transparent;
+}
+*::-webkit-scrollbar { width: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #63BDB5, #15696F);
+  border-radius: 3px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+/* ── Gradient text ── */
+.gradient-text {
+  background: linear-gradient(135deg, #63BDB5 0%, #15696F 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-text-warm {
+  background: linear-gradient(135deg, #3fa39b 0%, #15696F 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Gradient backgrounds ── */
+.gradient-bg      { background: linear-gradient(135deg, #63BDB5 0%, #15696F 100%); }
+.gradient-bg-warm { background: linear-gradient(135deg, #3fa39b 0%, #2B2B2B 100%); }
+
+/* ── Story ring ── */
+.story-ring {
+  background: linear-gradient(135deg, #63BDB5, #15696F, #2B2B2B);
+  padding: 3px;
+  border-radius: 50%;
+}
+.story-ring-seen       { background: #d1d5db; }
+.dark .story-ring-seen { background: #4b5563; }
+
+/* ── Cards ── */
+.card-soft {
+  background: rgba(238, 242, 240, 0.97);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(99, 189, 181, 0.15);
+}
+.dark .card-soft {
+  background: rgba(30, 35, 34, 0.97);
+  border: 1px solid rgba(99, 189, 181, 0.12);
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  background: linear-gradient(135deg, #63BDB5 0%, #15696F 100%);
+  transition: all 0.3s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 14px rgba(21, 105, 111, 0.35);
+}
+.btn-warm {
+  background: linear-gradient(135deg, #63BDB5 0%, #15696F 100%);
+  transition: all 0.3s ease;
+}
+.btn-warm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 14px rgba(21, 105, 111, 0.4);
+}
+
+/* ── Notification badge ── */
+.notification-badge { background: linear-gradient(135deg, #63BDB5, #15696F); }
+
+/* ── Animations ── */
+.slide-in { animation: slideIn 0.3s ease-out; }
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.like-animation { animation: likePopup 0.4s ease-out; }
+@keyframes likePopup {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+/* ── Responsive nav ── */
+@media (max-width: 768px) {
+  .desktop-nav { display: none; }
+  .mobile-nav  { display: flex; }
+}
+@media (min-width: 769px) {
+  .mobile-nav { display: none; }
+}
+
+/* ── Background mesh ── */
+.bg-mesh {
+  background-color: #EEF2F0;
+  background-image:
+    radial-gradient(at 47% 33%, rgba(99, 189, 181, 0.13) 0px, transparent 50%),
+    radial-gradient(at 82% 65%, rgba(21, 105, 111, 0.08) 0px, transparent 50%),
+    radial-gradient(at 15% 85%, rgba(43, 43, 43, 0.04) 0px, transparent 50%);
+}
+.dark .bg-mesh {
+  background-color: #1a1f1e;
+  background-image:
+    radial-gradient(at 47% 33%, rgba(99, 189, 181, 0.14) 0px, transparent 50%),
+    radial-gradient(at 82% 65%, rgba(21, 105, 111, 0.18) 0px, transparent 50%),
+    radial-gradient(at 15% 85%, rgba(43, 43, 43, 0.35) 0px, transparent 50%);
+}
+
+/* ── Font sizes ── */
+input, textarea { font-size: 16px; }
+
+/* ── Avatars ── */
+.avatar-teal        { background: linear-gradient(135deg, #63BDB5, #15696F); }
+.avatar-terracotta  { background: linear-gradient(135deg, #3fa39b, #15696F); }
+.avatar-navy        { background: linear-gradient(135deg, #3a3a3a, #2B2B2B); }
+
+/* ── Shadows ── */
+.shadow-soft    { box-shadow: 0 20px 27px 0 rgba(43, 43, 43, 0.08); }
+.shadow-soft-xl { box-shadow: 0 23px 45px -11px rgba(43, 43, 43, 0.15); }
+
+/* ── Hide scrollbars ── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
