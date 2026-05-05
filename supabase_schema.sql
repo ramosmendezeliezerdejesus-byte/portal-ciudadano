@@ -254,6 +254,10 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS latitude       DOUBLE PRECISION DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS longitude      DOUBLE PRECISION DEFAULT NULL;
 
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS requested_role TEXT DEFAULT 'user'
+  CHECK (requested_role IN ('user', 'diputado', 'presidente_junta'));
+
 -- 3. Tabla de solicitudes de verificación
 CREATE TABLE IF NOT EXISTS public.verification_requests (
   id              UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -1145,6 +1149,7 @@ BEGIN
     email,
     avatar_initials,
     role,
+    requested_role,
     community,
     community_key,
     address_reference
@@ -1156,6 +1161,11 @@ BEGIN
     NEW.email,
     UPPER(LEFT(COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)), 2)),
     'user',
+    CASE
+      WHEN NEW.raw_user_meta_data->>'requested_role' IN ('diputado', 'presidente_junta')
+        THEN NEW.raw_user_meta_data->>'requested_role'
+      ELSE 'user'
+    END,
     NULLIF(NEW.raw_user_meta_data->>'community', ''),
     NULLIF(NEW.raw_user_meta_data->>'community_key', ''),
     NULLIF(NEW.raw_user_meta_data->>'address_reference', '')
@@ -1165,6 +1175,7 @@ BEGIN
     full_name = EXCLUDED.full_name,
     email = EXCLUDED.email,
     avatar_initials = EXCLUDED.avatar_initials,
+    requested_role = COALESCE(EXCLUDED.requested_role, public.profiles.requested_role),
     community = COALESCE(EXCLUDED.community, public.profiles.community),
     community_key = COALESCE(EXCLUDED.community_key, public.profiles.community_key),
     address_reference = COALESCE(EXCLUDED.address_reference, public.profiles.address_reference);

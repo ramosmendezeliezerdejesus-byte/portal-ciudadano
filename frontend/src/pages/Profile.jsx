@@ -292,6 +292,10 @@ export default function Profile() {
   const [communityMsg, setCommunityMsg] = useState("");
 
   const initials = user?.avatar_initials ?? user?.full_name?.slice(0, 2).toUpperCase() ?? "TU";
+  const politicalRoles = ["diputado", "presidente_junta"];
+  const requestedRole = politicalRoles.includes(user?.requested_role) ? user.requested_role : null;
+  const approvedRole = politicalRoles.includes(user?.role) ? user.role : null;
+  const shouldShowVerification = Boolean(requestedRole) && user?.role !== "super_admin" && !approvedRole;
 
   useEffect(() => {
     setCommunity(user?.community ?? "");
@@ -301,17 +305,18 @@ export default function Profile() {
   // ── fetch verification request ────────────────────────────────────────────
   const fetchVerifRequest = useCallback(async () => {
     // Solo buscar si el usuario tiene un rol político pendiente de verificar
-    const pendingRoles = ["diputado", "presidente_junta"];
-    const userRole = user?.role ?? "user";
+    if (!shouldShowVerification) {
+      setVerifRequest(null);
+      return;
+    }
     // Mostrar si el role es político (pendiente de verificar) o si queremos ver estado
-    if (!pendingRoles.includes(userRole) && userRole !== "user") return;
     try {
       const req = await getMyVerificationRequest();
       setVerifRequest(req); // null si no hay solicitud
     } catch (_) {
       setVerifRequest(null);
     }
-  }, [getMyVerificationRequest, user?.role]);
+  }, [getMyVerificationRequest, shouldShowVerification]);
 
   // toggleDark viene importado de App.jsx — persiste en localStorage
 
@@ -499,15 +504,12 @@ export default function Profile() {
           </div>
 
           {/* ── Verificación de rol político ────────────────────────────── */}
-          {/* Solo mostrar si hay una solicitud existente (pendiente o rechazada) */}
-          {!showVerifForm && user?.role !== "super_admin" &&
-           user?.role !== "diputado" && user?.role !== "presidente_junta" &&
-           verifRequest !== null && verifRequest !== undefined && (
+          {shouldShowVerification && !showVerifForm && verifRequest !== undefined && (
             <VerificationBanner
               request={verifRequest}
-              roleType={verifRequest?.requested_role ?? null}
+              roleType={verifRequest?.requested_role ?? requestedRole}
               onStartForm={(role) => {
-                setSelectedVerifRole(role);
+                setSelectedVerifRole(role || requestedRole);
                 setShowVerifForm(true);
               }}
             />
@@ -533,7 +535,7 @@ export default function Profile() {
 
           {showVerifForm && (
             <VerificationForm
-              roleType={selectedVerifRole || verifRequest?.requested_role || "diputado"}
+              roleType={selectedVerifRole || verifRequest?.requested_role || requestedRole || "diputado"}
               onSuccess={() => {
                 setShowVerifForm(false);
                 fetchVerifRequest();

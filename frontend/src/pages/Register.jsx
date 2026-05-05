@@ -153,12 +153,12 @@ export default function Register({ onSwitch }) {
 
       if (roleType !== "user") {
         setSuccess(
-          `Cuenta creada. Confirma tu correo y luego inicia sesion. Desde tu perfil podras completar tu solicitud como ${
+          `Cuenta creada. Ya puedes iniciar sesion. Desde tu perfil podras completar tu solicitud como ${
             roleType === "diputado" ? "Diputado" : "Presidente de Junta"
           }.`
         );
       } else {
-        setSuccess("Cuenta creada. Revisa tu correo para confirmar tu cuenta.");
+        setSuccess("Cuenta creada. Ya puedes iniciar sesion.");
       }
     } catch (err) {
       setError(err.message || "Error al registrarse");

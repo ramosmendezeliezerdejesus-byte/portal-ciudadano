@@ -22,7 +22,7 @@ const NAV_ITEMS = [
 const ADMIN_ITEM = { icon: "fa-shield-alt", label: "Panel Admin", href: "/admin" };
 
 export default function NavMenu({ currentPath = "/" }) {
-  const { user, logout, getUnreadNotificationsCount } = useAuth();
+  const { user, getUnreadNotificationsCount } = useAuth();
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef(null);
@@ -178,18 +178,6 @@ export default function NavMenu({ currentPath = "/" }) {
               </span>
               <span className="dark:hidden">Modo oscuro</span>
               <span className="hidden dark:block">Modo claro</span>
-            </button>
-            <button
-              onClick={() => {
-                setOpen(false);
-                logout();
-              }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            >
-              <span className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0">
-                <i className="fas fa-sign-out-alt text-xs"></i>
-              </span>
-              Cerrar sesion
             </button>
           </div>
         </div>

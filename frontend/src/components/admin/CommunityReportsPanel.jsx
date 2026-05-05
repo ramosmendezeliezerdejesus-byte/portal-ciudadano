@@ -32,6 +32,106 @@ function summaryCard(label, value, icon, tone = "teal") {
   );
 }
 
+const PDF = {
+  teal: [99, 189, 181],
+  tealDark: [21, 105, 111],
+  navy: [43, 43, 43],
+  cream: [238, 242, 240],
+  muted: [107, 114, 128],
+  line: [214, 234, 231],
+  white: [255, 255, 255],
+  amber: [245, 158, 11],
+  red: [220, 38, 38],
+  green: [22, 163, 74],
+  blue: [37, 99, 235],
+};
+
+function setFill(pdf, color) {
+  pdf.setFillColor(color[0], color[1], color[2]);
+}
+
+function setDraw(pdf, color) {
+  pdf.setDrawColor(color[0], color[1], color[2]);
+}
+
+function setText(pdf, color) {
+  pdf.setTextColor(color[0], color[1], color[2]);
+}
+
+function cleanText(value, fallback = "Sin datos") {
+  return String(value ?? fallback).trim() || fallback;
+}
+
+function ellipsize(value, maxLength = 34) {
+  const text = cleanText(value);
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+}
+
+function formatPdfDate(value) {
+  if (!value) return "Sin fecha";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  return date.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function statusMeta(status) {
+  const normalized = String(status ?? "").toLowerCase();
+  if (normalized === "resuelta") return { label: "Resuelta", color: PDF.green, bg: [231, 247, 237] };
+  if (normalized === "en_gestion") return { label: "En gestion", color: PDF.blue, bg: [232, 240, 255] };
+  return { label: "Recibida", color: PDF.amber, bg: [255, 247, 237] };
+}
+
+function drawPill(pdf, text, x, y, color, bg, width = 34) {
+  setFill(pdf, bg);
+  pdf.roundedRect(x, y, width, 7.5, 3.75, 3.75, "F");
+  setText(pdf, color);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  pdf.text(text, x + width / 2, y + 5, { align: "center" });
+}
+
+function drawPdfHeader(pdf, title, subtitle, meta) {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  setFill(pdf, PDF.cream);
+  pdf.rect(0, 0, pageWidth, 34, "F");
+  setFill(pdf, PDF.tealDark);
+  pdf.rect(0, 0, pageWidth, 3, "F");
+  setFill(pdf, PDF.teal);
+  pdf.roundedRect(14, 10, 14, 14, 4, 4, "F");
+  setText(pdf, PDF.white);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.text("PC", 21, 19, { align: "center" });
+  setText(pdf, PDF.navy);
+  pdf.setFont("times", "bold");
+  pdf.setFontSize(18);
+  pdf.text(pdf.splitTextToSize(title, 104).slice(0, 1), 34, 16);
+  setText(pdf, PDF.muted);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text(pdf.splitTextToSize(subtitle, 118).slice(0, 1), 34, 23);
+  setText(pdf, PDF.tealDark);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  pdf.text(pdf.splitTextToSize(meta, 42).slice(0, 2), pageWidth - 14, 15, { align: "right" });
+}
+
+function drawPdfFooter(pdf) {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const pages = pdf.getNumberOfPages();
+  for (let page = 1; page <= pages; page += 1) {
+    pdf.setPage(page);
+    setDraw(pdf, PDF.line);
+    pdf.line(14, pageHeight - 14, pageWidth - 14, pageHeight - 14);
+    setText(pdf, PDF.muted);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.text("Portal Ciudadano - Donde la ciudadania habla", 14, pageHeight - 8);
+    pdf.text(`Pagina ${page} de ${pages}`, pageWidth - 14, pageHeight - 8, { align: "right" });
+  }
+}
+
 export default function CommunityReportsPanel({ onClose }) {
   const { adminGetCommunityReportSummary } = useAuth();
   const [communityKey, setCommunityKey] = useState("");
@@ -98,36 +198,187 @@ export default function CommunityReportsPanel({ onClose }) {
   }
 
   function handleExportPdf() {
-    const pdf = new jsPDF();
-    let y = 20;
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 14;
+    const contentWidth = pageWidth - margin * 2;
+    const generatedAt = new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+    const selectedCommunity = communities.find((community) => community.value === communityKey)?.label ?? "Todos los sectores";
 
-    pdf.setFontSize(18);
-    pdf.text("Reporte comunitario", 14, y);
-    y += 12;
+    const ensurePage = (y, needed = 24) => {
+      if (y + needed <= pageHeight - 22) return y;
+      pdf.addPage();
+      drawPdfHeader(pdf, "Reporte comunitario", selectedCommunity, generatedAt);
+      return 46;
+    };
 
-    pdf.setFontSize(11);
-    pdf.text(`Solicitudes registradas: ${summary.total_requests}`, 14, y);
-    y += 8;
+    const sectionTitle = (title, y) => {
+      y = ensurePage(y, 14);
+      setText(pdf, PDF.navy);
+      pdf.setFont("times", "bold");
+      pdf.setFontSize(15);
+      pdf.text(title, margin, y);
+      setDraw(pdf, PDF.teal);
+      pdf.setLineWidth(0.8);
+      pdf.line(margin, y + 3, margin + 32, y + 3);
+      return y + 11;
+    };
 
-    const topProblems = summary.common_problems.slice(0, 5).map((item) => `${item.label}: ${item.count}`).join(" | ");
-    const topSectors = summary.sectors_with_more_reports.slice(0, 5).map((item) => `${item.label}: ${item.count}`).join(" | ");
-    pdf.text(`Problemas mas comunes: ${topProblems || "Sin datos"}`, 14, y, { maxWidth: 180 });
-    y += 14;
-    pdf.text(`Sectores con mas reportes: ${topSectors || "Sin datos"}`, 14, y, { maxWidth: 180 });
-    y += 14;
+    const metricCard = (label, value, x, y, w, color) => {
+      setFill(pdf, PDF.white);
+      setDraw(pdf, PDF.line);
+      pdf.roundedRect(x, y, w, 30, 4, 4, "FD");
+      setFill(pdf, color);
+      pdf.roundedRect(x + 4, y + 6, 8, 18, 3, 3, "F");
+      setText(pdf, PDF.muted);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7);
+      pdf.text(pdf.splitTextToSize(label.toUpperCase(), w - 21).slice(0, 2), x + 16, y + 10);
+      setText(pdf, PDF.navy);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(17);
+      pdf.text(String(value ?? 0), x + 16, y + 24);
+    };
 
-    pdf.setFontSize(10);
-    requests.slice(0, 10).forEach((item, index) => {
-      if (y > 260) {
-        pdf.addPage();
-        y = 20;
+    const rankingBox = (title, items, x, y, w) => {
+      setFill(pdf, PDF.white);
+      setDraw(pdf, PDF.line);
+      pdf.roundedRect(x, y, w, 62, 4, 4, "FD");
+      setText(pdf, PDF.navy);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.text(title, x + 5, y + 8);
+      const total = Math.max(...items.slice(0, 5).map((item) => item.count), 1);
+      if (!items.length) {
+        setText(pdf, PDF.muted);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.text("Sin datos registrados.", x + 5, y + 20);
+        return;
       }
-      pdf.text(`${index + 1}. [${item.source_type}] ${item.title}`, 14, y, { maxWidth: 180 });
-      y += 6;
-      pdf.text(`Categoria: ${item.category} | Sector: ${item.community} | Estado: ${item.status}`, 18, y, { maxWidth: 176 });
-      y += 8;
+      items.slice(0, 5).forEach((item, index) => {
+        const rowY = y + 18 + index * 8;
+        const labelW = 37;
+        const barX = x + labelW + 8;
+        const barW = w - labelW - 18;
+        const barWidth = Math.max(5, (barW * item.count) / total);
+        setText(pdf, PDF.navy);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7);
+        pdf.text(ellipsize(item.label, 28), x + 5, rowY, { maxWidth: labelW });
+        setFill(pdf, [230, 246, 244]);
+        pdf.roundedRect(barX, rowY - 3.2, barW, 3.5, 1.7, 1.7, "F");
+        setFill(pdf, index === 0 ? PDF.tealDark : PDF.teal);
+        pdf.roundedRect(barX, rowY - 3.2, barWidth, 3.5, 1.7, 1.7, "F");
+        setText(pdf, PDF.tealDark);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7);
+        pdf.text(String(item.count), x + w - 4, rowY, { align: "right" });
+      });
+    };
+
+    drawPdfHeader(pdf, "Reporte comunitario", "Resumen ejecutivo de solicitudes, denuncias y sectores", generatedAt);
+
+    let y = 47;
+    setText(pdf, PDF.navy);
+    pdf.setFont("times", "bold");
+    pdf.setFontSize(22);
+    pdf.text(pdf.splitTextToSize("Panel de actividad comunitaria", contentWidth).slice(0, 2), margin, y);
+    y += 9;
+    setText(pdf, PDF.muted);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(pdf.splitTextToSize(`Sector: ${selectedCommunity}`, 112).slice(0, 2), margin, y);
+    pdf.text(`Generado: ${generatedAt}`, pageWidth - margin, y, { align: "right" });
+    y += selectedCommunity.length > 48 ? 13 : 9;
+    const intro = "Este reporte consolida los casos ciudadanos registrados, los problemas mas frecuentes y los sectores con mayor actividad para apoyar la toma de decisiones.";
+    pdf.text(pdf.splitTextToSize(intro, contentWidth), margin, y);
+    y += 17;
+
+    const cardGap = 6;
+    const cardW = (contentWidth - cardGap) / 2;
+    metricCard("Solicitudes registradas", summary.total_requests, margin, y, cardW, PDF.teal);
+    metricCard("Problemas distintos", summary.common_problems.length, margin + cardW + cardGap, y, cardW, PDF.red);
+    y += 36;
+    metricCard("Sectores reportados", summary.sectors_with_more_reports.length, margin, y, cardW, PDF.amber);
+    metricCard("Usuarios por sector", summary.users_by_sector.length, margin + cardW + cardGap, y, cardW, PDF.blue);
+    y += 44;
+
+    y = sectionTitle("Indicadores principales", y);
+    const boxW = (contentWidth - cardGap) / 2;
+    rankingBox("Problemas mas comunes", summary.common_problems, margin, y, boxW);
+    rankingBox("Sectores con mas reportes", summary.sectors_with_more_reports, margin + boxW + cardGap, y, boxW);
+    y += 73;
+
+    y = sectionTitle("Detalle de casos reportados", y);
+    if (!requests.length) {
+      setFill(pdf, PDF.white);
+      setDraw(pdf, PDF.line);
+      pdf.roundedRect(margin, y, contentWidth, 24, 4, 4, "FD");
+      setText(pdf, PDF.muted);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.text("No hay solicitudes o denuncias registradas para este filtro.", margin + 6, y + 14);
+    }
+
+    requests.forEach((item, index) => {
+      const title = cleanText(item.title);
+      const description = cleanText(item.description, "Sin descripcion");
+      const metaLine = `${cleanText(item.source_type)} | ${cleanText(item.category)} | ${cleanText(item.community)} | ${formatPdfDate(item.created_at)}`;
+      const titleLines = pdf.splitTextToSize(title, contentWidth - 76).slice(0, 2);
+      const metaLines = pdf.splitTextToSize(metaLine, contentWidth - 32).slice(0, 2);
+      const descLines = pdf.splitTextToSize(description, contentWidth - 16).slice(0, 4);
+      const footerText = `${cleanText(item.reporter_name, "Usuario")}${item.location_text ? ` - ${item.location_text}` : ""}`;
+      const footerLines = pdf.splitTextToSize(footerText, contentWidth - 16).slice(0, 2);
+      const titleBlockH = titleLines.length * 5;
+      const metaBlockH = metaLines.length * 4;
+      const descBlockH = descLines.length * 4.4;
+      const footerBlockH = item.reporter_name || item.location_text ? footerLines.length * 3.8 + 3 : 0;
+      const cardHeight = Math.max(48, 18 + titleBlockH + metaBlockH + descBlockH + footerBlockH);
+      y = ensurePage(y, cardHeight + 7);
+
+      setFill(pdf, PDF.white);
+      setDraw(pdf, PDF.line);
+      pdf.roundedRect(margin, y, contentWidth, cardHeight, 4, 4, "FD");
+
+      setFill(pdf, PDF.teal);
+      pdf.circle(margin + 8, y + 9, 4.5, "F");
+      setText(pdf, PDF.white);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7);
+      pdf.text(String(index + 1), margin + 8, y + 11, { align: "center" });
+
+      setText(pdf, PDF.navy);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10.5);
+      pdf.text(titleLines, margin + 16, y + 8);
+
+      const meta = statusMeta(item.status);
+      drawPill(pdf, meta.label, pageWidth - margin - 38, y + 5, meta.color, meta.bg, 34);
+
+      setText(pdf, PDF.muted);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      const metaY = y + 10 + titleBlockH;
+      pdf.text(metaLines, margin + 16, metaY);
+
+      const descY = metaY + metaBlockH + 6;
+      setText(pdf, PDF.navy);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8.2);
+      pdf.text(descLines, margin + 8, descY);
+
+      if (item.reporter_name || item.location_text) {
+        setText(pdf, PDF.tealDark);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(7.5);
+        pdf.text(footerLines, margin + 8, y + cardHeight - 8 - (footerLines.length - 1) * 3.8);
+      }
+      y += cardHeight + 6;
     });
 
+    drawPdfFooter(pdf);
     pdf.save("reporte-comunitario.pdf");
   }
 

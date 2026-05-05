@@ -19,7 +19,8 @@ const ROLE_META = {
 
 // ── VerificationBanner ────────────────────────────────────────────────────
 export function VerificationBanner({ request, roleType, onStartForm }) {
-  const [selectedRole, setSelectedRole] = useState("diputado");
+  const requestedRole = ROLE_META[roleType] ? roleType : null;
+  const [selectedRole, setSelectedRole] = useState(requestedRole || "diputado");
 
   // Solicitud pendiente
   if (request?.status === "pending") {
@@ -49,7 +50,7 @@ export function VerificationBanner({ request, roleType, onStartForm }) {
             <p className="text-xs text-gray-500 mt-0.5">Motivo: {request.admin_notes}</p>
           )}
           <button
-            onClick={onStartForm}
+            onClick={() => onStartForm(request?.requested_role || requestedRole || selectedRole)}
             className="inline-flex items-center gap-2 px-4 py-2 btn-warm text-white text-xs font-semibold rounded-xl mt-2"
           >
             <i className="fas fa-redo"></i> Enviar nueva solicitud
@@ -68,13 +69,15 @@ export function VerificationBanner({ request, roleType, onStartForm }) {
         </div>
         <div>
           <p className="font-semibold text-sm text-brand-navy dark:text-brand-cream">
-            ¿Eres Diputado o Presidente de Junta?
+            {requestedRole
+              ? `Confirma que eres ${ROLE_META[requestedRole].label}`
+              : "Eres Diputado o Presidente de Junta?"}
           </p>
           <p className="text-xs text-gray-400">Solicita verificación de tu cargo oficial</p>
         </div>
       </div>
 
-      <div className="flex gap-2 mb-3">
+      {!requestedRole && <div className="flex gap-2 mb-3">
         {Object.entries(ROLE_META).map(([value, meta]) => (
           <button
             key={value}
@@ -93,7 +96,7 @@ export function VerificationBanner({ request, roleType, onStartForm }) {
             </span>
           </button>
         ))}
-      </div>
+      </div>}
 
       <button
         onClick={() => onStartForm(selectedRole)}

@@ -50,7 +50,34 @@ class AuthService(BaseService):
                 return None
             page += 1
 
-    def _build_profile_payload(self, user_id, email, username, full_name, community, address_reference=None):
+    def _confirm_email(self, email=None, user_id=None):
+        auth_user = self.admin_client.auth.admin.get_user_by_id(user_id).user if user_id else self._find_auth_user_by_email(email)
+        if not auth_user:
+            return None
+        if not getattr(auth_user, "email_confirmed_at", None):
+            auth_user = self.admin_client.auth.admin.update_user_by_id(
+                auth_user.id,
+                {"email_confirm": True},
+            ).user
+        return auth_user
+
+    @staticmethod
+    def _normalize_requested_role(value):
+        requested_role = (value or "user").strip()
+        return requested_role if requested_role in ("diputado", "presidente_junta") else "user"
+
+    @staticmethod
+    def _is_missing_requested_role_column(error):
+        message = str(error)
+        return "requested_role" in message and ("PGRST204" in message or "schema cache" in message)
+
+    def _profile_with_requested_role(self, profile_data, user_metadata=None):
+        profile = dict(profile_data or {})
+        if "requested_role" not in profile:
+            profile["requested_role"] = self._normalize_requested_role((user_metadata or {}).get("requested_role"))
+        return profile
+
+    def _build_profile_payload(self, user_id, email, username, full_name, community, address_reference=None, requested_role="user"):
         normalized_community = self._normalize_community(community)
         return {
             "id": user_id,
@@ -61,9 +88,10 @@ class AuthService(BaseService):
             "community": normalized_community["community"],
             "community_key": normalized_community["community_key"],
             "address_reference": (address_reference or "").strip() or None,
+            "requested_role": self._normalize_requested_role(requested_role),
         }
 
-    def _ensure_profile(self, user_id, email, username, full_name, community, address_reference=None):
+    def _ensure_profile(self, user_id, email, username, full_name, community, address_reference=None, requested_role="user"):
         profile_payload = self._build_profile_payload(
             user_id,
             email,
@@ -71,8 +99,16 @@ class AuthService(BaseService):
             full_name,
             community,
             address_reference,
+            requested_role,
         )
-        self.admin_client.table("profiles").upsert(profile_payload).execute()
+        try:
+            self.admin_client.table("profiles").upsert(profile_payload).execute()
+        except Exception as error:
+            if not self._is_missing_requested_role_column(error):
+                raise
+            fallback_payload = dict(profile_payload)
+            fallback_payload.pop("requested_role", None)
+            self.admin_client.table("profiles").upsert(fallback_payload).execute()
         return profile_payload
 
     def register(self, data) -> ServiceResult:
@@ -82,6 +118,7 @@ class AuthService(BaseService):
         full_name = (data.get("full_name") or "").strip()
         community = (data.get("community") or "").strip()
         address_reference = (data.get("address_reference") or "").strip()
+        requested_role = self._normalize_requested_role(data.get("requested_role"))
 
         if not all([email, password, username, full_name, community]):
             raise ValidationError("Todos los campos obligatorios son requeridos")
@@ -113,6 +150,7 @@ class AuthService(BaseService):
                         "community": normalized_community["community"],
                         "community_key": normalized_community["community_key"],
                         "address_reference": address_reference or None,
+                        "requested_role": requested_role,
                     },
                 },
             })
@@ -128,6 +166,7 @@ class AuthService(BaseService):
         auth_user = self.admin_client.auth.admin.get_user_by_id(response.user.id).user
         if not auth_user:
             raise ValidationError("No se pudo completar el registro del usuario")
+        self._confirm_email(user_id=response.user.id)
 
         time.sleep(0.8)
         try:
@@ -138,6 +177,7 @@ class AuthService(BaseService):
                 full_name,
                 normalized_community["community"],
                 address_reference,
+                requested_role,
             )
         except Exception as error:
             try:
@@ -147,7 +187,7 @@ class AuthService(BaseService):
             raise ValidationError(f"No se pudo guardar el perfil del usuario: {error}")
 
         return self.ok({
-            "message": "Registro exitoso. Revisa tu email para verificar tu cuenta.",
+            "message": "Registro exitoso. Ya puedes iniciar sesion.",
             "user": {
                 "id": response.user.id,
                 "email": response.user.email,
@@ -155,6 +195,7 @@ class AuthService(BaseService):
                 "full_name": full_name,
                 "community": normalized_community["community"],
                 "address_reference": address_reference or None,
+                "requested_role": requested_role,
             },
         }, status_code=201)
 
@@ -169,12 +210,17 @@ class AuthService(BaseService):
         except Exception as error:
             message = str(error).lower()
             if any(token in message for token in ["email not confirmed", "email_not_confirmed", "not confirmed", "confirmation"]):
-                raise ValidationError(
-                    "Debes verificar tu correo antes de iniciar sesion.",
-                    status_code=401,
-                    payload={"code": "EMAIL_NOT_VERIFIED"},
-                )
-            raise ValidationError("Email o contrasena incorrectos", status_code=401)
+                try:
+                    self._confirm_email(email=email)
+                    response = self.public_client.auth.sign_in_with_password({"email": email, "password": password})
+                except Exception:
+                    raise ValidationError(
+                        "Debes verificar tu correo antes de iniciar sesion.",
+                        status_code=401,
+                        payload={"code": "EMAIL_NOT_VERIFIED"},
+                    )
+            else:
+                raise ValidationError("Email o contrasena incorrectos", status_code=401)
 
         if not (response.user and response.session):
             raise ValidationError("Credenciales incorrectas", status_code=401)
@@ -193,8 +239,12 @@ class AuthService(BaseService):
                 (user_metadata.get("full_name") or "").strip() or email.split("@", 1)[0],
                 fallback_community,
                 (user_metadata.get("address_reference") or "").strip() or None,
+                user_metadata.get("requested_role"),
             )
             profile = self.public_client.table("profiles").select("*").eq("id", response.user.id).single().execute()
+
+        user_metadata = response.user.user_metadata or {}
+        profile_data = self._profile_with_requested_role(profile.data, user_metadata)
 
         return self.ok({
             "access_token": response.session.access_token,
@@ -204,7 +254,7 @@ class AuthService(BaseService):
                 "id": response.user.id,
                 "email": response.user.email,
                 "email_verified": bool(response.user.email_confirmed_at),
-                **profile.data,
+                **profile_data,
             },
         })
 
@@ -234,8 +284,12 @@ class AuthService(BaseService):
                 (user_metadata.get("full_name") or "").strip() or email.split("@", 1)[0],
                 (user_metadata.get("community") or "").strip() or "Comunidad pendiente",
                 (user_metadata.get("address_reference") or "").strip() or None,
+                user_metadata.get("requested_role"),
             )
             profile = self.public_client.table("profiles").select("*").eq("id", response.user.id).single().execute()
+
+        user_metadata = response.user.user_metadata or {}
+        profile_data = self._profile_with_requested_role(profile.data, user_metadata)
 
         return self.ok({
             "access_token": response.session.access_token,
@@ -245,7 +299,7 @@ class AuthService(BaseService):
                 "id": response.user.id,
                 "email": response.user.email,
                 "email_verified": bool(response.user.email_confirmed_at),
-                **profile.data,
+                **profile_data,
             },
         })
 
@@ -263,4 +317,6 @@ class AuthService(BaseService):
     def me(self, token, user_id) -> ServiceResult:
         user = self.public_client.auth.get_user(token)
         profile = self.public_client.table("profiles").select("*").eq("id", user_id).single().execute()
-        return self.ok({"user": {**profile.data, "email_verified": bool(user.user.email_confirmed_at)}})
+        user_metadata = user.user.user_metadata or {}
+        profile_data = self._profile_with_requested_role(profile.data, user_metadata)
+        return self.ok({"user": {**profile_data, "email_verified": bool(user.user.email_confirmed_at)}})

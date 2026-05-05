@@ -1,10 +1,15 @@
 import os
 from dataclasses import dataclass
 
+import certifi
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
 load_dotenv()
+
+CA_BUNDLE_PATH = certifi.where()
+os.environ.setdefault("SSL_CERT_FILE", CA_BUNDLE_PATH)
+os.environ.setdefault("REQUESTS_CA_BUNDLE", CA_BUNDLE_PATH)
 
 
 @dataclass(frozen=True)

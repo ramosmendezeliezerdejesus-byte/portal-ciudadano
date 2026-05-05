@@ -3,5 +3,6 @@ flask-cors==4.0.1
 supabase==2.5.3
 PyJWT==2.8.0
 python-dotenv==1.0.1
+certifi==2026.2.25
 better-profanity==0.7.0
 detoxify==0.5.2
